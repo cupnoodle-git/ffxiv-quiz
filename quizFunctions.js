@@ -28,6 +28,67 @@ function moveImage(imageID, newX, newY, rotation = 0, mirror = false)
 	}
 }
 
+function moveTargetToCoords(targetID, newX, newY)
+{
+	//Move the target so that the center is on the selected coordinates
+	var targetImage = document.getElementById(targetID);
+	if (targetImage)
+	{
+		var targetPosInfo = targetImage.getBoundingClientRect();
+		newX -= targetPosInfo.width / 2;
+		newY -= targetPosInfo.height / 2;
+
+		moveImage(targetID, newX, newY);
+	}
+	else
+	{
+		console.error("Could not move image (Not found: " + targetID + ")");
+	}
+}
+
+function getElementCoords(elementID)
+{
+	let newX = 0;
+	let newY = 0;
+	let xString = document.getElementById(elementID).style.left;
+	let yString = document.getElementById(elementID).style.top;
+	newX = Number(xString.substring(0, xString.length-2));
+	newY = Number(yString.substring(0, yString.length-2));	
+	return [newX, newY];
+}
+
+function moveCharToTarget(charID, targetID, offsetX = 0, offsetY = 0)
+{
+	//move thar character sprite so that the sprite's feet are centered on the marker
+	var imageToMove = document.getElementById(charID);
+	var targetImage = document.getElementById(targetID);
+	if (imageToMove && targetImage)
+	{
+		imageToMove.offsetHeight; //Force Reflow
+		targetImage.offsetHeight;
+
+		//Get target location and width
+		var targetPosInfo = targetImage.getBoundingClientRect();
+		var charPosInfo = imageToMove.getBoundingClientRect();
+		//Set target coords to center of the target
+		var targetX = getElementCoords(targetID)[0] + (targetPosInfo.width / 2) + offsetX;
+		var targetY = getElementCoords(targetID)[1] + (targetPosInfo.height / 2) + offsetY;
+		console.log(getElementCoords(targetID));
+		console.log(targetX);
+		console.log(targetY);
+		//Subtract the image height and half width from the target pos
+		targetX -= (charPosInfo.width / 2);
+		targetY -= (charPosInfo.height / 1.5);
+		//move the stuff
+		imageToMove.style.left = targetX + "px";
+		imageToMove.style.top = targetY + "px";
+	}
+	else
+	{
+		console.error("Could not move image (Image(s) not found" + charID, " / " + targetID + ")");
+	}
+}
+
 function hideImage(imageID)
 {
 	var imageToHide = document.getElementById(imageID);
