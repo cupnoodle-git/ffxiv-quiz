@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="utf-8">
+<meta name="og:title" content="CupNoodle's Quiz Time - M4S Witch Hunt"/>
+<meta name="og:url" content="https://cupnoodle.moe/m4s/witchhunt/"/>
+<meta name="og:image" content="https://cupnoodle.moe/img/cupsmol.jpg"/> 
+<meta name="og:description" content="Practice mechanics on this website before you take it into the real thing.  Feel free to share with your friends and/or static!  If you like this tool, let me know on Discord (@realcupnoodle)"/>
+<title>CupNoodle's Quiz Time!</title>
+
+<script src="quizFunctions.js"></script>
+<link rel="stylesheet" href="quizStyles.css">
+
+<style>
+/* Page-Specific Styles Go Here */
+
+.castbar
+{
+	position: absolute;
+	left: 180px;
+	top: 100px;
+	/* cursor: pointer; */
+	transition: left 0.5s ease, top 0.5s ease, transform 0.5s ease;
+	border-color: orange;
+	border-style: solid;
+	border-width: 2px;
+	height: 20px;
+	width: 200px;
+	background-color: black;
+}
+
+@keyframes castMeterFill
+{
+	0% { width: 0%; }
+	100% { width: 100%; }
+}
+
+@keyframes resolveAoE
+{
+	0%
+	{
+		opacity: 0;
+	}
+	15%
+	{
+		opacity: 1;
+	}
+	85%
+	{
+		opacity: 1;
+	}
+	100%
+	{
+		opacity: 0;
+	}
+}
+
+.resolveAoE
+{
+	animation: resolveAoE 5s;
+	animation-delay: 1s;
+	animation-fill-mode: both;
+}
+
+.resolveSpread
+{
+	animation: resolveAoE 4s;
+	animation-delay: 1.5s;
+	animation-fill-mode: both;
+}
+
+.aoeMarker
+{
+	opacity: 0;
+}
+
+.spreadMarker
+{
+	opacity: 0;
+}
+
+.castMeter
+{
+	display: block;
+	height: 100%;
+	background-color: gold;
+	animation: castMeterFill 20s ease-in-out;
+}
+
+.castText
+{
+	position: relative;
+	display: inline;
+	top: -40px;
+	font-weight: bold;
+	color: orange;
+	/* cursor: pointer; */
+	transition: left 0.5s ease, top 0.5s ease, transform 0.5s ease;
+	height: 20px;
+	width: 200px;
+}
+</style>
+
+<script>
+//Set globals here
+var win = 0;
+var lose = 0;
+
+var ghost = false;		//true = invisible party members
+var inOut = true;		//true = in (Narrowing), false = out (Widening)
+var closeFar = true;	//true = close, false = far
+var selectedChar = 0;	//MT-R2-M2-H2-OT-H1-M1-R1
+var startingVisible = true;	//true = visible, false = hidden
+var step = 0;			//0 = First Spot, 1 = Second Spot, 2 = Third Spot, 3 = Fourth Spot, 4 = Complete/Wipe
+var killed = false;
+
+//Coordinates for the target markers
+//[unitIndex][pointIndex]
+var xpos = [
+	[478,478,478,478,478,478], //MT
+	[525,550,575,600,625,650], //R2
+	[546,581,616,646,681,716], //M2
+	[525,550,575,699,625,650], //H2
+	[478,478,478,478,478,478], //OT
+	[433,408,383,358,333,308], //H1
+	[408,373,338,308,273,238], //M1
+	[433,408,383,358,333,308]  //R1
+	];
+var ypos = [
+	[310,275,240,210,175,140], //MT
+	[335,310,285,260,235,210], //R2
+	[378,378,378,378,378,378], //M2
+	[425,450,475,500,525,550], //H2
+	[450,485,520,550,585,620], //OT
+	[425,450,475,500,525,550], //H1
+	[378,378,378,378,378,378], //M1
+	[335,310,285,260,235,210]  //R1
+	];
+
+</script>
+
+</head>
+
+<body>
+
+<!-- Title Bar -->
+<div class="titleBar"> <!-- Title div -->
+	<div class="scoreCount" style="float: left; background-color: #CCFFCC; color: #009900;">
+		<h1>WINS</h1>
+		<h2 id="winText">0</h2>
+	</div>
+	<div class="scoreCount" style="float: right; background-color: #FFCCCC; color: #990000;">
+		<h1>WIPES</h1>
+		<h2 id="loseText">0</h2>
+	</div>
+	<h1>CupNoodle's Quiz Time!</h1>
+	<h2>M4S - Witch Hunt</h2>
+</div> <!-- End Title Div -->
+
+<div class="quizContainer"> <!-- Content div -->
+	<p style="display: table;">It's M4S Time.  You're at Witch Hunt and your party is relying on you to go to the right spot.  Do you remember where to go?  Click the correct location based on your role and what the mechanic calls for.</br></br>Change your role by clicking the <strong>role icon</strong> to the left.  To reset and start from the beginning, press the green <strong>refresh icon</strong> to the right.</br></br>Don't let the cast bar stress you out.  It's not real.  You <em>should</em> look at it though so you see what she is casting!</p>
+	<p id="status" class="alert">Wicked Thunder is starting the mechanic.</br></br>The first mechanic indicated is shown in the center of the arena.</p>
+	<div class="quizBlock"> <!-- All of the quiz content will be located in here - Override height if needed. -->
+		<!-- Battle Background -->
+		<img src="img/bg.png" style="border-radius: 15px;"/>
+		
+		<!-- Boss -->
+		<img src="img/necodance.apng" style="left: 440px; top: 330px;"/>
+		
+		<!-- Damage Markers -->
+		<img id="inMarker" class="aoeMarker" src="img/in.png"/>
+		<img id="outMarker" class="aoeMarker" src="img/out.png"/>
+		<img id="spread1" style="left: 476px; top: 270px;" class="spreadMarker" src="img/aoe.png"/>
+		<img id="spread2" style="left: 576px; top: 270px;" class="spreadMarker" src="img/aoe.png"/>
+		
+		<!-- Party -->
+		<img id="p0" style="left: 440px; top: 245px;" src="img/mt.png"/>
+		<img id="p1" style="left: 570px; top: 200px;" src="img/r2.png"/>
+		<img id="p2" style="left: 575px; top: 325px;" src="img/m2.png"/>
+		<img id="p3" style="left: 625px; top: 435px;" src="img/h2.png"/>
+		<img id="p4" style="left: 495px; top: 440px;" src="img/ot.png"/>
+		<img id="p5" style="left: 425px; top: 500px;" src="img/h1.png"/>
+		<img id="p6" style="left: 350px; top: 400px;" src="img/m1.png"/>
+		<img id="p7" style="left: 300px; top: 250px;" src="img/r1.png"/>
+		
+		<!-- Red/Blue/??? Marker -->
+		<img id="closeFar" style="left: 362px; top: 340px; opacity: 0.6;" src="img/far.png"/>
+		
+		<!-- Location Selection -->
+		<img id="t0" style="left: 478px; top: 310px; cursor: pointer;" src="img/target.png" onclick="grade(0)"/> <!-- In Close -->
+		<img id="t1" style="left: 478px; top: 275px; cursor: pointer;" src="img/target.png" onclick="grade(1)"/> <!-- In Mid -->
+		<img id="t2" style="left: 478px; top: 240px; cursor: pointer;" src="img/target.png" onclick="grade(2)"/> <!-- In Far -->
+		<img id="t3" style="left: 478px; top: 210px; cursor: pointer;" src="img/target.png" onclick="grade(3)"/> <!-- Out Close -->
+		<img id="t4" style="left: 478px; top: 175px; cursor: pointer;" src="img/target.png" onclick="grade(4)"/> <!-- Out Mid -->
+		<img id="t5" style="left: 478px; top: 140px; cursor: pointer;" src="img/target.png" onclick="grade(5)"/> <!-- Out Far -->		
+		
+		<!-- CastBar -->
+		<div class="castbar" id="castDiv"><span id="castMeter" class="castMeter"></span><p id="spellname" class="castText">Widening Witch Hunt</p></div>
+		
+		<!-- Menu Images -->
+		<img id="resetImg" style="right: 10px; top: 10px; border-radius: 5px;" src="img/reset.png" onclick="setupBoard()"/>
+		<img id="roleImg" style="left: 10px; top: 10px; border-radius: 5px;" src="img/iconmt.png" onclick="changeRole()"/>
+		
+	</div>
+	<p id="gradeBlock" class="grading">Witch Hunt is made up of four alternating In/Out mechanics, as well as four alternating proximity based attacks.</br></br>The party will start either <strong>In</strong> (Narrowing), or <strong>Out</strong> (Widening).</br></br>During each attack she will also alternate between targeting the two <strong>Closest</strong> (Pink Marker), or the two <strong>Farthest</strong> (Blue Marker) players.</br></br><em>Because the attacks will always alternate, you only need to look at what she starts with.  You do not need to memorize the entire order.</br></br><span style="margin: 5px; padding: 5px; border-radius: 5px; background-color: #FFFFAA; display: inline-block;">In fact, there's even a way to do the entire mechanic without even knowing what the markers are at all!  Not sure how to do it?  Watch your role partners during the mechanic!</span></em></br></br>Support will bait the first two proximity attacks.  DPS will bait the second two proximity attacks.  Melee/Tanks baiting the <strong>Close</strong> attack, and Ranged/Healers baiting the <strong>Far</strong> attack.</p>
+	<p class="contact">Please feel free to enjoy this tool and share with your raid group.  Do you like this tool?  Let me know if it helps and/or you'd like to see more for other mechanics.  Contact me on Discord @<strong>realcupnoodle</strong>.</br></br>Looking for other mechanics? <a href="https://cupnoodle.moe/m4s/sunrise/">How about Sunrise Sabbath?</a></p>
+</div> <!-- End Content Div -->
+
+<script>
+//Additional Functions go here
+function setupBoard()
+{
+	//Initialize variables and place everything in an initial configuration
+	inOut = Math.random() < 0.5;		//true = in (Narrowing), false = out (Widening)
+	closeFar = Math.random() < 0.5;		//true = close, false = far
+	startingVisible = Math.random() < 0.8;//true = Can see indicator
+	step = 0;			//0 = First Spot, 1 = Second Spot, 2 = Third Spot, 3 = Fourth Spot, 4 = Complete/Wipe
+	killed = false;
+	
+	//If the game is reset during the animation
+	cancelAnimation("spread1", "resolveSpread");
+	cancelAnimation("spread2", "resolveSpread");
+	cancelAnimation("inMarker", "resolveAoE");
+	cancelAnimation("outMarker", "resolveAoE");
+	
+	//Place characters in clock spots
+	moveImage("p0", 440,245);
+	moveImage("p1", 570,200);
+	moveImage("p2", 575,325);
+	moveImage("p3", 625,435);
+	moveImage("p4", 495,440);
+	moveImage("p5", 425,500);
+	moveImage("p6", 350,400);
+	moveImage("p7", 300,250);
+	
+	//Set the initial alert text and grade block
+	setBgAndColor("gradeBlock", "#AAFFAA", "#006600");
+	setBgAndColor("status", "#AAAAFF", "#000066");
+	
+	setText("status", "Wicked Thunder is beginning the mechanic.  She's starting Witch Hunt.  You've prepared for this.  You're ready.");
+	setText("gradeBlock", 'Witch Hunt is made up of four alternating In/Out mechanics, as well as four alternating proximity based attacks.</br></br>The party will start either <strong>In</strong> (Narrowing), or <strong>Out</strong> (Widening).</br></br>During each attack she will also alternate between targeting the two <strong>Closest</strong> (Pink Marker), or the two <strong>Farthest</strong> (Blue Marker) players.</br></br><em>Because the attacks will always alternate, you only need to look at what she starts with.  You do not need to memorize the entire order.</br></br><span style="margin: 5px; padding: 5px; border-radius: 5px; background-color: #FFFFAA; display: inline-block;">In fact, there\'s even a way to do the entire mechanic without even knowing what the markers are at all!  Not sure how to do it?  Watch your role partners during the mechanic!</span></em></br></br>Support will bait the first two proximity attacks.  DPS will bait the second two proximity attacks.  Melee/Tanks baiting the <strong>Close</strong> attack, and Ranged/Healers baiting the <strong>Far</strong> attack.');
+	if (startingVisible)
+	{
+		document.getElementById("closeFar").style.opacity = "0.6";
+		addText('status', "</br></br>The first set of diamonds is shown in the center of the arena.");
+		//Set the close/far image to the correct one
+		if (closeFar)
+		{
+			changeImage("closeFar", "img/close.png");
+		}
+		else
+		{
+			changeImage("closeFar", "img/far.png");
+		}
+	}
+	else
+	{
+		document.getElementById("closeFar").style.opacity = "0";
+		addText("status", "</br></br><strong>You forgot to look at the diamonds! You aren't sure if it's closest or farthest first!</strong>");
+	}
+	//Show the castbar
+	document.getElementById("castDiv").style.display = "block";
+	//Start the castbar over again
+	reanimate("castMeter", "castMeter");
+	//Set the correct name on the castbar
+	if (inOut)
+	{
+		setText("spellname", "Narrowing Witch Hunt");
+	}
+	else
+	{
+		setText("spellname", "Widening Witch Hunt");
+	}
+	
+}
+
+function changeRole()
+{
+	//Change the role and re-assign markers
+	switch(selectedChar)
+	{
+		//We're going to cycle these in a different order to the viewer, so this will require a special order.
+		case 0: //MT
+			selectedChar =  4; //OT
+			changeImage("roleImg", "img/iconot.png");
+			break;
+		case 1: //R2
+			selectedChar = 0; //MT
+			changeImage("roleImg", "img/iconmt.png");
+			break;
+		case 2: //M2
+			selectedChar = 7; //R1
+			changeImage("roleImg", "img/iconr1.png");
+			break;
+		case 3: //H2
+			selectedChar = 6; //M1
+			changeImage("roleImg", "img/iconm1.png");
+			break;
+		case 4: //OT
+			selectedChar = 5; //H1
+			changeImage("roleImg", "img/iconh1.png");
+			break;
+		case 5: //H1
+			selectedChar = 3; //H2
+			changeImage("roleImg", "img/iconh2.png");
+			break;
+		case 6: //M1
+			selectedChar = 2; //M2
+			changeImage("roleImg", "img/iconm2.png");
+			break;
+		case 7: //R1
+			selectedChar = 1; //R2
+			changeImage("roleImg", "img/iconr2.png");
+			break;
+	}
+	assignMarkers(); //Relocate the quiz target markers
+	setupBoard();
+}
+
+function assignMarkers()
+{
+	switch(selectedChar)
+	{
+		case 0: //MT *
+			moveImage("t0", 478, 310);
+			moveImage("t1", 478, 275);
+			moveImage("t2", 478, 240);
+			moveImage("t3", 478, 210);
+			moveImage("t4", 478, 175);
+			moveImage("t5", 478, 140);
+			break;
+		case 1: //R2 *
+			moveImage("t0", 525, 335);
+			moveImage("t1", 550, 310);
+			moveImage("t2", 575, 285);
+			moveImage("t3", 600, 260);
+			moveImage("t4", 625, 235);
+			moveImage("t5", 650, 210);
+			break;
+		case 2: //M2 *
+			moveImage("t0", 546, 378);
+			moveImage("t1", 581, 378);
+			moveImage("t2", 616, 378);
+			moveImage("t3", 646, 378);
+			moveImage("t4", 681, 378);
+			moveImage("t5", 716, 378);
+			break;
+		case 3: //H2 *
+			moveImage("t0", 525, 425);
+			moveImage("t1", 550, 450);
+			moveImage("t2", 575, 475);
+			moveImage("t3", 600, 500);
+			moveImage("t4", 625, 525);
+			moveImage("t5", 650, 550);
+			break;
+		case 4: //OT *
+			moveImage("t0", 478, 450);
+			moveImage("t1", 478, 485);
+			moveImage("t2", 478, 520);
+			moveImage("t3", 478, 550);
+			moveImage("t4", 478, 585);
+			moveImage("t5", 478, 620);
+			break;
+		case 5: //H1 *
+			moveImage("t0", 433, 425);
+			moveImage("t1", 408, 450);
+			moveImage("t2", 383, 475);
+			moveImage("t3", 358, 500);
+			moveImage("t4", 333, 525);
+			moveImage("t5", 308, 550);
+			break;
+		case 6: //M1 *
+			moveImage("t0", 408, 378);
+			moveImage("t1", 373, 378);
+			moveImage("t2", 338, 378);
+			moveImage("t3", 308, 378);
+			moveImage("t4", 273, 378);
+			moveImage("t5", 238, 378);
+			break;
+		case 7: //R1 *
+			moveImage("t0", 433, 335);
+			moveImage("t1", 408, 310);
+			moveImage("t2", 383, 285);
+			moveImage("t3", 358, 260);
+			moveImage("t4", 333, 235);
+			moveImage("t5", 308, 210);
+			break;
+	}
+}
+
+function grade(choice)
+{
+	if (step <= 3) //Don't do anything in the final step (Complete/Game Over)
+	{
+		//If a choice is made during the animation
+		cancelAnimation("spread1", "resolveSpread");
+		cancelAnimation("spread2", "resolveSpread");
+		cancelAnimation("inMarker", "resolveAoE");
+		cancelAnimation("outMarker", "resolveAoE");
+	
+		//Calculate results based on the player choice
+		
+		//Move all the non-players to their correct location.
+		if (selectedChar != 0)
+			placeUnit(0);
+		if (selectedChar != 1)
+			placeUnit(1);
+		if (selectedChar != 2)
+			placeUnit(2);
+		if (selectedChar != 3)
+			placeUnit(3);
+		if (selectedChar != 4)
+			placeUnit(4);
+		if (selectedChar != 5)
+			placeUnit(5);
+		if (selectedChar != 6)
+			placeUnit(6);
+		if (selectedChar != 7)
+			placeUnit(7);
+		
+		//Move the selected character to the place they clicked on
+		var targetClicked = "t" + choice;
+		var unitID = "p" + selectedChar;
+		var targetElement = document.getElementById(targetClicked);
+		var targetPos = [targetElement.style.left.substring(0, targetElement.style.left.length - 2) - 15, targetElement.style.top.substring(0, targetElement.style.top.length - 2) - 28];
+		moveImage(unitID, targetPos[0], targetPos[1]);
+		
+		//Determine who is targeted with the AoEs based on closest/farthest and which stage the mechanic is in (0-1 Support, 2-3 DPS).
+		var aoeTargets = [0, 0]; //The two targets for the AoE.  The player will steal one if they chose wrong (or give it to another role at random)
+		if (step <= 1) //Support Soak
+		{
+			if (closeFar) //For close, target the tanks
+			{
+				aoeTargets = [0, 4];
+			}
+			else //For far, target the healers
+			{
+				aoeTargets = [3, 5];
+			}
+		}
+		else //DPS Soak
+		{
+			if (closeFar) //For close, target the melee
+			{
+				aoeTargets = [2, 6];
+			}
+			else //For far, target the ranged
+			{
+				aoeTargets = [1, 7];
+			}
+		}
+		
+		//Reset the text inside the grade box
+		setText("gradeBlock", "The " + stepToText(step) + " swing goes off.");
+		
+		//Did the player go in or out correctly?
+		if (inOut) //In
+		{
+			if (choice >= 3)
+			{
+				//Dead - If it was FAR, give the player one of the AoEs as well.
+				if (!closeFar)
+				{
+					aoeTargets[Math.floor(Math.random() * 2)] = selectedChar;
+				}
+				killed = true;
+				addText("gradeBlock", "</br></br><strong>[FAIL]</strong> - Narrowing Witch Hunt is a donut AoE.  You went out.");
+			}
+			else
+			{
+				//Player was in.  Did they choose the correct box?
+				addText("gradeBlock", "</br></br><strong>[PASS]</strong> - Narrowing Witch Hunt is a donut AoE.  You went in.");
+				if (closeFar) //If the CLOSEST two should have been targeted
+				{
+					if ((step <= 1 && (selectedChar == 0 || selectedChar == 4)) || (step >= 2 && (selectedChar == 2 || selectedChar == 6)))//First set should be tanks, Second Set should be melee
+					{
+						if (choice == 0) //If you picked the inside
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to be the closest character to the boss.");
+						}
+						else //You should have taken the inside.  Give the AoE to a random person in another role.
+						{
+							//Fail
+							aoeTargets = reassignAoE(aoeTargets);
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to be the closest character to the boss.");
+							killed = true;
+						}
+					}
+					else
+					{
+						if (choice == 0) //If you picked the inside
+						{
+							//Fail - Steal a random AoE
+							aoeTargets[Math.floor(Math.random() * 2)] = selectedChar;
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to <strong>not</strong> be the closest character to the boss.");
+							killed = true;
+						}
+						else
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to <strong>not</strong> be the closest character to the boss.");
+						}
+					}
+				}
+				else //If the FARTHEST two should have been targeted
+				{
+					if ((step <= 1 && (selectedChar == 3 || selectedChar == 5)) || (step >= 2 && (selectedChar == 1 || selectedChar == 7)))//First set should be healers, Second Set should be ranged
+					{
+						if (choice == 2) //If you picked the outside
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to be the farthest character from the boss.");
+						}
+						else //You should have taken the inside.  Give the AoE to a random person in another role.
+						{
+							//Fail
+							aoeTargets = reassignAoE(aoeTargets);
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to be the farthest character from the boss.");
+							killed = true;
+						}
+					}
+					else
+					{
+						if (choice == 2) //If you picked the outside
+						{
+							//Fail - Steal a random AoE
+							aoeTargets[Math.floor(Math.random() * 2)] = selectedChar;
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to <strong>not</strong> be the farthest character from the boss.");
+							killed = true;
+						}
+						else
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to <strong>not</strong> be the farthest character from the boss.");
+						}
+					}
+				}
+			}
+		}
+		else //Out
+		{
+			if (choice < 3)
+			{
+				//Dead - If it was CLOSE, give the player one of the AoEs as well.
+				if (closeFar)
+				{
+					aoeTargets[Math.floor(Math.random() * 2)] = selectedChar;
+				}
+				killed = true;
+				addText("gradeBlock", "</br></br><strong>[FAIL]</strong> - Widening Witch Hunt is a point-blank AoE.  You went in.");
+			}
+			else
+			{
+				//Player was in.  Did they choose the correct box?
+				addText("gradeBlock", "</br></br><strong>[PASS]</strong> - Widening Witch Hunt is a point-blank AoE.  You went out.");
+				if (closeFar) //If the CLOSEST two should have been targeted
+				{
+					if ((step <= 1 && (selectedChar == 0 || selectedChar == 4)) || (step >= 2 && (selectedChar == 2 || selectedChar == 6)))//First set should be tanks, Second Set should be melee
+					{
+						if (choice == 3) //If you picked the inside
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to be the closest character to the boss.");
+						}
+						else //You should have taken the inside.  Give the AoE to a random person in another role.
+						{
+							//Fail
+							aoeTargets = reassignAoE(aoeTargets);
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to be the closest character to the boss.");
+							killed = true;
+						}
+					}
+					else
+					{
+						if (choice == 3) //If you picked the inside
+						{
+							//Fail - Steal a random AoE
+							aoeTargets[Math.floor(Math.random() * 2)] = selectedChar;
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to <strong>not</strong> be the closest character to the boss.");
+							killed = true;
+						}
+						else
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to <strong>not</strong> be the closest character to the boss.");
+						}
+					}
+				}
+				else //If the FARTHEST two should have been targeted
+				{
+					if ((step <= 1 && (selectedChar == 3 || selectedChar == 5)) || (step >= 2 && (selectedChar == 1 || selectedChar == 7)))//First set should be healers, Second Set should be ranged
+					{
+						if (choice == 5) //If you picked the outside
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to be the farthest character from the boss.");
+						}
+						else //You should have taken the inside.  Give the AoE to a random person in another role.
+						{
+							//Fail
+							aoeTargets = reassignAoE(aoeTargets);
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to be the farthest character from the boss.");
+							killed = true;
+						}
+					}
+					else
+					{
+						if (choice == 5) //If you picked the outside
+						{
+							//Fail - Steal a random AoE
+							aoeTargets[Math.floor(Math.random() * 2)] = selectedChar;
+							addText("gradeBlock", "</br><strong>[FAIL]</strong> - You need to <strong>not</strong> be the farthest character from the boss.");
+							killed = true;
+						}
+						else
+						{
+							//Correct
+							addText("gradeBlock", "</br><strong>[PASS]</strong> - You need to <strong>not</strong> be the farthest character from the boss.");
+						}
+					}
+				}
+			}
+		}
+		
+		//Play animation for In/Out and AoEs.
+		var point1 = getNPCPoint(aoeTargets[0]);
+		var point2 = getNPCPoint(aoeTargets[1]);
+		if (selectedChar == aoeTargets[0])
+			point1 = choice;
+		else if (selectedChar == aoeTargets[1])
+			point2 = choice;
+		console.log(choice);
+		moveImage("spread1", xpos[aoeTargets[0]][point1] - 30, ypos[aoeTargets[0]][point1] - 42);
+		moveImage("spread2", xpos[aoeTargets[1]][point2] - 30, ypos[aoeTargets[1]][point2] - 42);
+		console.log((xpos[aoeTargets[0]][point1] - 30) + ", " + (ypos[aoeTargets[0]][point1] - 42));
+		if (inOut)
+		{
+			reanimate("inMarker", "resolveAoE");
+		}
+		else
+		{
+			reanimate("outMarker", "resolveAoE");
+		}
+		reanimate("spread1", "resolveSpread");
+		reanimate("spread2", "resolveSpread");
+		
+		//See if the player passed or failed
+		if (killed)
+		{
+			//Fail
+			setBgAndColor("gradeBlock", "#FF99CC", "#660033");
+			setBgAndColor("status", "#FF99CC", "#660033");
+			setText("status", "<strong>[FAIL]</strong> - You've killed yourself and/or a party member.  Don't feel bad.  This is just for pretend.  You'll get it next time, maybe.</br><em>Note: Wrong baits can still be salvaged if the party can react quickly and swap baits on the fly</em></br></br>Press the <strong>reset button</strong> to the right to try again.");
+			step = 4; //We're done here.
+		}
+		else
+		{
+			//Pass
+			if (step < 3)
+				setText("status", "<strong>[PASS]</strong> - You've gone to the " + stepToText(step) + " location correctly.</br></br>Now, click where you need to go for the " + stepToText(step+1) + " attack.");
+			inOut = !inOut;
+			closeFar = !closeFar;
+			step++;
+			//Hide castbar and diamonds
+			document.getElementById("castDiv").style.display = "none";
+			document.getElementById("closeFar").style.opacity = "0";
+		}
+		
+		if (step == 4)
+		{
+			//The mechanic is over.  If the player isn't killed, give them a congratulations and tally up their win
+			if (!killed)
+			{
+				win++;
+				setText("winText", win);
+				setBgAndColor("status", "#AAFFAA", "#006600");
+				setText("status", "<strong>[PASS]</strong> - You've completed the mechanic!  Press the <strong>reset button</strong> to the right to try again.  Or if you're confident, try it out in-game!");
+			}
+			else
+			{
+				lose++;
+				setText("loseText", lose);
+			}
+		}
+	}
+}
+
+function stepToText(v)
+{
+	switch(v)
+	{
+		case 0:
+			return "first";
+		case 1:
+			return "second";
+		case 2:
+			return "third";
+		case 3:
+			return "fourth";
+		default:
+			return "[ERROR - THIS SHOULDN'T BE LOGICALLY POSSIBLE]";
+	}
+}
+
+function reassignAoE(aoeTargets) //Gives the AoE to a party member in the opposite role
+{
+	//aoeTargets should always be an array of 2
+	var newIndex = 0;
+	var pool = [0,3,4,5];
+	if (aoeTargets[0] != selectedChar)
+	{
+		newIndex = 1;
+	}
+	//Get player role
+	if (pool.includes(selectedChar))
+	{
+		pool = [1,2,6,7];
+	}
+	aoeTargets[newIndex] = pool[Math.floor(Math.random() * 4)];
+	return aoeTargets;
+}
+
+function getNPCPoint(unitIndex)
+{
+	//Figure out which point they need to be at
+	if (step <= 1) //If first or 2nd swing
+	{
+		if (inOut) //in
+		{
+			//Close or Far doesn't matter since the NPCs will go to their assigned locations
+			switch(unitIndex)
+			{
+				case 0:
+				case 4: //Tanks
+					return 0;
+					break;
+				case 3:
+				case 5: //Healers
+					return 2;
+					break;
+				default:
+					return 1;
+					break;
+			}
+		}
+		else //out
+		{
+			switch(unitIndex)
+			{
+				case 0:
+				case 4: //Tanks
+					return 3;
+					break;
+				case 3:
+				case 5: //Healers
+					return 5;
+					break;
+				default:
+					return 4;
+					break;
+			}
+		}
+	}
+	else //If 3rd or 4th swing
+	{
+		if (inOut) //in
+		{
+			//Close or Far doesn't matter since the NPCs will go to their assigned locations
+			switch(unitIndex)
+			{
+				case 2:
+				case 6: //Melee
+					return 0;
+					break;
+				case 1:
+				case 7: //Ranged
+					return 2;
+					break;
+				default:
+					return 1;
+					break;
+			}
+		}
+		else //out
+		{
+			switch(unitIndex)
+			{
+				case 2:
+				case 6: //Melee
+					return 3;
+					break;
+				case 1:
+				case 7: //Ranged
+					return 5;
+					break;
+				default:
+					return 4;
+					break;
+			}
+		}
+	}
+}
+
+function placeUnit(unitIndex)
+{
+	pointIndex = getNPCPoint(unitIndex);
+	//Points have been figured out.  Now assign them based on the character.
+	var unitID = "p" + unitIndex;
+	moveImage(unitID, xpos[unitIndex][pointIndex]-15, ypos[unitIndex][pointIndex]-28);	
+}
+
+window.onload = setupBoard();
+</script>
